@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DEL SUR Soluciones Integrales - Agenda de Visitas</title>
+<style>
+  body {
+    background-color: #121212;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 30px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    color: gold;
+    font-size: 2.5em;
+    margin: 0;
+  }
+  header h2 {
+    font-size: 1.5em;
+    margin: 5px 0 0 0;
+  }
+  section.form-section {
+    background-color: #1e1e1e;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  input, select {
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    background-color: #2a2a2a;
+    color: white;
+    width: 100%;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
+  button.add-btn {
+    padding: 12px;
+    background-color: gold;
+    color: black;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+  }
+  section.visitas-list {
+    margin-top: 40px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .card {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h3 {
+    color: gold;
+    margin-top: 0;
+  }
+  .card p {
+    margin: 5px 0;
+  }
+  .actions {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  button.small-btn {
+    padding: 8px;
+    background-color: #333;
+    color: white;
+    border: 1px solid gold;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-grow: 1;
+    min-width: 100px;
+  }
+  a.map-link {
+    padding: 8px;
+    background-color: #333;
+    color: white;
+    border: 1px solid gold;
+    border-radius: 4px;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    flex-grow: 2;
+    min-width: 120px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DEL SUR Soluciones Integrales</h1>
+  <h2>Agenda de Visitas</h2>
+</header>
+
+<section class="form-section">
+  <input id="nombre" placeholder="Nombre" />
+  <input id="direccion" placeholder="Dirección" />
+  <select id="localidad">
+    <option value="">Seleccione Localidad</option>
+    <option value="Capital Federal">Capital Federal</option>
+    <option value="Buenos Aires">Buenos Aires</option>
+  </select>
+  <input id="telefono" placeholder="Teléfono" />
+  <input id="fecha" type="date" />
+  <input id="hora" type="time" />
+  <button class="add-btn" id="btnAgregar">Agregar Visita</button>
+</section>
+
+<section class="visitas-list" id="listaVisitas"></section>
+
+<script>
+  const scriptURL = 'https://script.google.com/macros/s/AKfycbx9s67qQencQEOyCCJ3RLPf7vQpox6WuZqOoLFhU73vGgccb45Xer0TJdsJtU68jFhzrw/exec'; // <- Cambia por la URL de tu Web App Google Apps Script
+
+  let visitas = [];
+  let modoEdicion = false;
+  let indiceEditar = null;
+
+  const nombreInput = document.getElementById('nombre');
+  const direccionInput = document.getElementById('direccion');
+  const localidadInput = document.getElementById('localidad');
+  const telefonoInput = document.getElementById('telefono');
+  const fechaInput = document.getElementById('fecha');
+  const horaInput = document.getElementById('hora');
+  const btnAgregar = document.getElementById('btnAgregar');
+  const listaVisitas = document.getElementById('listaVisitas');
+
+  function limpiarFormulario() {
+    nombreInput.value = '';
+    direccionInput.value = '';
+    localidadInput.value = '';
+    telefonoInput.value = '';
+    fechaInput.value = '';
+    horaInput.value = '';
+  }
+
+  function validarDatos() {
+    const hoy = new Date().toISOString().split('T')[0];
+    if (fechaInput.value < hoy) {
+      alert('La fecha no puede ser anterior a hoy.');
+      return false;
+    }
+    if (!['Capital Federal', 'Buenos Aires'].includes(localidadInput.value)) {
+      alert('La localidad debe ser Capital Federal o Buenos Aires.');
+      return false;
+    }
+    if (!nombreInput.value || !direccionInput.value || !telefonoInput.value || !fechaInput.value || !horaInput.value) {
+      alert('Por favor, complete todos los campos.');
+      return false;
+    }
+    return true;
+  }
+
+  function mostrarVisitas() {
+    listaVisitas.innerHTML = '';
+    visitas.forEach((v, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      card.innerHTML = `
+        <h3>${v.nombre}</h3>
+        <p>${v.direccion}, ${v.localidad}</p>
+        <p>Tel: ${v.telefono}</p>
+        <p>Fecha: ${v.fecha} ${v.hora}</p>
+        <p>Estado: <strong>${v.estado || 'Pendiente'}</strong></p>
+        <div class="actions">
+          <button class="small-btn" onclick="editarVisita(${i})">Editar</button>
+          <button class="small-btn" onclick="cambiarEstado(${i}, 'Reprogramada')">Reprogramar</button>
+          <button class="small-btn" onclick="cambiarEstado(${i}, 'Cancelada')">Cancelar</button>
+          <button class="small-btn" onclick="cambiarEstado(${i}, 'Realizada')">Realizada</button>
+          <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.direccion + ', ' + v.localidad)}" target="_blank" rel="noopener noreferrer">Ver en mapa</a>
+        </div>
+      `;
+      listaVisitas.appendChild(card);
+    });
+  }
+
+  function cargarVisitas() {
+    fetch(scriptURL)
+      .then(res => res.json())
+      .then(data => {
+        visitas = data;
+        mostrarVisitas();
+      })
+      .catch(err => alert('Error al cargar visitas: ' + err.message));
+  }
+
+  function agregarVisita() {
+    if (!validarDatos()) return;
+
+    const visita = {
+      nombre: nombreInput.value,
+      direccion: direccionInput.value,
+      localidad: localidadInput.value,
+      telefono: telefonoInput.value,
+      fecha: fechaInput.value,
+      hora: horaInput.value,
+      estado: 'Pendiente'
+    };
+
+    if (modoEdicion) {
+      visita.indice = indiceEditar;
+      fetch(scriptURL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(visita)
+      })
+      .then(res => res.json())
+      .then(resp => {
+        if (resp.error) {
+          alert('Error al editar: ' + resp.error);
+          return;
+        }
+        visitas[indiceEditar] = visita;
+        modoEdicion = false;
+        indiceEditar = null;
+        btnAgregar.textContent = 'Agregar Visita';
+        limpiarFormulario();
+        mostrarVisitas();
+      })
+      .catch(err => alert('Error al editar visita: ' + err.message));
+    } else {
+      fetch(scriptURL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(visita)
+      })
+      .then(res => res.json())
+      .then(resp => {
+        if (resp.error) {
+          alert('Error al agregar: ' + resp.error);
+          return;
+        }
+        visitas.push(visita);
+        limpiarFormulario();
+        mostrarVisitas();
+      })
+      .catch(err => alert('Error al agregar visita: ' + err.message));
+    }
+  }
+
+  function editarVisita(i) {
+    const v = visitas[i];
+    nombreInput.value = v.nombre;
+    direccionInput.value = v.direccion;
+    localidadInput.value = v.localidad;
+    telefonoInput.value = v.telefono;
+    fechaInput.value = v.fecha;
+    horaInput.value = v.hora;
+    modoEdicion = true;
+    indiceEditar = i;
+    btnAgregar.textContent = 'Guardar Cambios';
+  }
+
+  function cambiarEstado(i, nuevoEstado) {
+    const visita = {...visitas[i], estado: nuevoEstado, indice: i};
+    fetch(scriptURL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(visita)
+    })
+    .then(res => res.json())
+    .then(resp => {
+      if (resp.error) {
+        alert('Error al cambiar estado: ' + resp.error);
+        return;
+      }
+      visitas[i].estado = nuevoEstado;
+      mostrarVisitas();
+    })
+    .catch(err => alert('Error al cambiar estado: ' + err.message));
+  }
+
+  btnAgregar.addEventListener('click', agregarVisita);
+
+  // Al cargar la página
+  cargarVisitas();
+
+</script>
+
+</body>
+</html>
